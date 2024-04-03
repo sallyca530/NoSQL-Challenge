@@ -171,7 +171,7 @@ Confirm that the new restaurant was updated
     'NewRatingPending': True}
 
 
-**Eliminating unwanted data. Uninterested in restuarant in Dover.**
+**Eliminating unwanted data. Uninterested in restaurants in Dover.**
 
     query = {"LocalAuthorityName":"Dover"}
 
@@ -218,9 +218,105 @@ Change the data type from String to Integer for RatingValue
 
 
 ## Part 3: Exploratory Analysis
-Moving to NoSQL_analysis_starter.ipynb, we delve into the dataset to answer specific questions posed by "Eat Safe, Love" magazine. We explore establishments based on hygiene scores, ratings, proximity to specified locations, and other criteria, employing count_documents, pprint, and Pandas DataFrame to present findings effectively.
+Moving to NoSQL_analysis.ipynb, the establishments collection is explored and based on hygiene scores, ratings, proximity to specified locations, and other criteria, employing count_documents, pprint, and Pandas DataFrame to present findings effectively.
 
-For each question, we provide comprehensive analyses, highlighting key insights and offering actionable recommendations for the magazine's editorial team. Through this project, we aim to streamline their decision-making process and enhance the quality of future articles.
+#### 1. Which establishments have a hygiene score equal to 20?
+
+    # Find the establishments with a hygiene score of 20
+    query = {"scores.Hygiene": 20}
+
+    # Use count_documents to display the number of documents in the result
+    twenty_hygiene = establishments.count_documents(query)
+    print(f"{twenty_hygiene} documents show a hygiene score equal to 20.")
+
+    Output: 41 documents show a hygiene score equal to 20.
+
+
+#### 2. Which establishments in London have a `RatingValue` greater than or equal to 4?
+
+    # Find the establishments with London as the Local Authority and has a RatingValue greater than or equal to 4.
+    query = {'LocalAuthorityName': {'$regex': 'London'}, 'RatingValue' : {"$gte" : 4}}
+
+    # Use count_documents to display the number of documents in the result
+    four_rating_value = establishments.count_documents(query)
+    print(f"{four_rating_value} documents have a rating value greater than or equal to 4.")
+
+    Output: 33 documents have a rating value greater than or equal to 4.
+
+#### 3. What are the top 5 establishments with a `RatingValue` rating value of 5, sorted by lowest hygiene score, nearest to the new restaurant added, "Penang Flavours"?
+
+    # Search within 0.01 degree on either side of the latitude and longitude.
+    # Rating value must equal 5
+    # Sort by hygiene score
+
+    degree_search = 0.01
+    latitude = 51.49014200
+    longitude = 0.08384000
+
+    query = {'RatingValue': {'$eq' : 5},
+            'geocode.latitude' : {'$lte': (latitude + degree_search), '$gte': (latitude - degree_search)},
+            'geocode.longitude' : {'$lte': (longitude + degree_search), '$gte': (longitude - degree_search)}}
+
+    sort =  [('scores.Hygiene', 1)]
+
+    # Print the results
+    print(f"{establishments.count_documents(query)} documents are shown with this criteria.")
+
+    Output: 87 documents are shown with this criteria.
+
+#### 4. How many establishments in each Local Authority area have a hygiene score of 0?
+
+    # Create a pipeline that: 
+    # 1. Matches establishments with a hygiene score of 0
+    match = {'$match' : {'scores.Hygiene' : 0}}
+
+    # 2. Groups the matches by Local Authority
+    group = {'$group' : {'_id' : '$LocalAuthorityName', 'count' : {'$sum' : 1}}}
+
+    # 3. Sorts the matches from highest to lowest
+    sort = {'$sort' : {'count': -1}}
+
+    #Pipeline
+    pipeline = [match, group, sort]
+
+    #Results
+    results = list(establishments.aggregate(pipeline))
+
+    # Print the number of documents in the result
+    print("Number of documents in result: ", len(results))
+
+    Output: Number of documents in result:  55
+
+Print the first 10 results
+
+    pprint(results[0:10])
+
+    Output: [{'_id': 'Thanet', 'count': 1130},
+    {'_id': 'Greenwich', 'count': 882},
+    {'_id': 'Maidstone', 'count': 713},
+    {'_id': 'Newham', 'count': 711},
+    {'_id': 'Swale', 'count': 686},
+    {'_id': 'Chelmsford', 'count': 680},
+    {'_id': 'Medway', 'count': 672},
+    {'_id': 'Bexley', 'count': 607},
+    {'_id': 'Southend-On-Sea', 'count': 586},
+    {'_id': 'Tendring', 'count': 542}]
+
+Convert the result to a Pandas DataFrame
+
+    aggregated_df = pd.json_normalize(results)
+
+    # Display the number of rows in the DataFrame
+    print(f"{len(aggregated_df)} rows are in this Dataframe.")
+
+    Output: 55 rows are in this Dataframe.
+
+
+Display the first 10 rows of the DataFrame
+    
+    aggregated_df.head(10)
+
+![image](NoSQL_Analysis/Resources/aggregated_df.png)
 
 ## Conclusion
 
